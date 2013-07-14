@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import android.os.Handler;
-import android.util.Log;
 
 /**
  * Created by johanrisch on 6/18/13.
@@ -25,7 +24,10 @@ public class ICDispatch {
      * the high priority thread.
      */
     private static ICQueue sHighThread;
-    
+
+    private static ICDispatachMainQueue sMainQueue;
+   
+
     private static ICConCurrentQueue sConcurrentThread;
 
     /**
@@ -72,6 +74,9 @@ public class ICDispatch {
         sHighThread.start();
 
         sMainHandler = new Handler();
+        sMainQueue = new ICDispatachMainQueue(new LinkedBlockingQueue<ICBlock>(),sMainHandler, 10);
+        sMainQueue.setPriority(Thread.MAX_PRIORITY);
+        sMainQueue.start();
 
         sNormalThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
         sNormalThread.setPriority(Thread.NORM_PRIORITY);
@@ -96,7 +101,6 @@ public class ICDispatch {
      *             if the supplied queue does not exist.
      */
     public boolean executeOn(int queue, final ICBlock block) {
-        Log.d("ICDispatch", "scheduling execution of a block on " + queue);
         switch (queue) {
         case HIGH:
             sHighThread.putBlock(block);
@@ -108,14 +112,10 @@ public class ICDispatch {
             sLowThread.putBlock(block);
             break;
         case MAIN:
-            sMainHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    block.run();
-                }
-            });
+            sMainQueue.putBlock(block);
             break;
         case CONCURRENT:
+            sConcurrentThread.putBlock(block);
             break;
         default:
             throw new RuntimeException("Invalid thread ID, " + queue +
@@ -125,7 +125,6 @@ public class ICDispatch {
     }
 
     public void executeAllOn(int queue, Collection<ICBlock> blocks) {
-        Log.d("ICDispatch", "scheduling execution of a block on " + queue);
         switch (queue) {
         case HIGH:
             sHighThread.putAll(blocks);
@@ -147,13 +146,13 @@ public class ICDispatch {
             }
             break;
         case CONCURRENT:
+            sConcurrentThread.putAll(blocks);
             break;
         default:
             throw new RuntimeException("Invalid thread ID, " + queue +
                     " please supply one of LOW, NORMAL, HIGH, MAIN or CONCURRENT");
         }
     }
-
 
     /**
      * Schedules a method for execution on the supplied thread. ICDispatch keeps
