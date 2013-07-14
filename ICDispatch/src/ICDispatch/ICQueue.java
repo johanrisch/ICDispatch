@@ -1,5 +1,6 @@
 package ICDispatch;
 
+import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -9,11 +10,11 @@ import java.util.concurrent.BlockingQueue;
 /**
  * The thread class used by {@see ICDispatch} to execute {@see ICBlock} on.
  */
-public class ICThread extends Thread {
+public class ICQueue extends Thread{
     /**
      * The internal {@see BlockingQueue} for the thread.
      */
-    BlockingQueue<ICBlock> mQueue;
+    protected BlockingQueue<ICBlock> mQueue;
     /**
      * Boolean used to determine if the thread should continue.
      */
@@ -23,7 +24,7 @@ public class ICThread extends Thread {
      * Creates a new ICThread with the specified Queue.
      * @param queue the queue to contain all{@see ICBlock}s.
      */
-    public ICThread(BlockingQueue<ICBlock> queue) {
+    public ICQueue(BlockingQueue<ICBlock> queue) {
         mQueue = queue;
     }
 
@@ -33,6 +34,11 @@ public class ICThread extends Thread {
      */
     synchronized void putBlock(ICBlock block) {
         mQueue.add(block);
+       
+    }
+    
+    synchronized void putAll(Collection<ICBlock> blocks){
+        mQueue.addAll(blocks);
     }
 
     /**
@@ -42,6 +48,9 @@ public class ICThread extends Thread {
     synchronized ICBlock getBlock() {
         return mQueue.poll();
     }
+ 
+    
+    
 
     /**
      * This method loops until running == false. Retrieving one block per loop, waiting if necessary.
@@ -53,7 +62,7 @@ public class ICThread extends Thread {
         while (running) {
             try {
                 currentBlock = mQueue.take();
-                currentBlock.doAction();
+                currentBlock.run();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
