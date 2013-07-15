@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import android.os.Handler;
+import android.os.Looper;
 
 /**
  * Created by johanrisch on 6/18/13.
@@ -15,20 +16,19 @@ public class ICDispatch {
     /**
      * The normal priority thread.
      */
-    private static ICQueue sNormalThread;
+    private static ICQueue mNormalThread;
     /**
      * The low priority thread
      */
-    private static ICQueue sLowThread;
+    private ICQueue mLowThread;
     /**
      * the high priority thread.
      */
-    private static ICQueue sHighThread;
+    private ICQueue mHighThread;
 
-    private static ICDispatachMainQueue sMainQueue;
-   
+    private ICDispatachMainQueue mMainQueue;
 
-    private static ICConCurrentQueue sConcurrentThread;
+    private ICConCurrentQueue mConcurrentThread;
 
     /**
      * Static int telling {@see ICDispatch} to execute on the high priority
@@ -55,38 +55,101 @@ public class ICDispatch {
     /**
      * Handler used to execute on UI thread.
      */
-    private Handler sMainHandler;
+    private Handler mMainHandler;
     /**
      * Map used to cache method mappings.
      */
     private HashMap<String, Method> mMethodMap;
+    /**
+     * This parameter sets the maximum messages to be queued per UI thread run
+     * loop. Default is 10.
+     */
+    private int mMaxMessagesOnUILoop = 10;
+
+    /**
+     * This parameter sets the maximum number of hashed methods. Default is 250
+     */
+    private int mMaxMethodsHashed = 250;
+    /**
+     * This parameter sets the maximum number of threads in the concurrent
+     * queue. The default (0) is number of cores.
+     */
+    private int mMaxThreadsInConcurrent = 0;
+
+    private boolean isInitialized = false;
 
     /**
      * initiates ICDispatch. MUST be called at before scheduling blocks.
      */
     public void initICDispatch() {
-        sConcurrentThread = new ICConCurrentQueue(new LinkedBlockingQueue<ICBlock>());
-        sConcurrentThread.setPriority(Thread.NORM_PRIORITY);
-        sConcurrentThread.start();
 
-        sHighThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
-        sHighThread.setPriority(Thread.MAX_PRIORITY);
-        sHighThread.start();
+        mConcurrentThread = new ICConCurrentQueue(new LinkedBlockingQueue<ICBlock>(),
+                mMaxThreadsInConcurrent);
+        mConcurrentThread.setPriority(Thread.NORM_PRIORITY);
+        mConcurrentThread.start();
 
-        sMainHandler = new Handler();
-        sMainQueue = new ICDispatachMainQueue(new LinkedBlockingQueue<ICBlock>(),sMainHandler, 10);
-        sMainQueue.setPriority(Thread.MAX_PRIORITY);
-        sMainQueue.start();
+        mHighThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
+        mHighThread.setPriority(Thread.MAX_PRIORITY);
+        mHighThread.start();
 
-        sNormalThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
-        sNormalThread.setPriority(Thread.NORM_PRIORITY);
-        sNormalThread.start();
+        mMainHandler = new Handler();
+        mMainQueue = new ICDispatachMainQueue(new LinkedBlockingQueue<ICBlock>(), mMainHandler,
+                mMaxMessagesOnUILoop);
+        mMainQueue.setPriority(Thread.MAX_PRIORITY);
+        mMainQueue.start();
 
-        sLowThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
-        sLowThread.setPriority(Thread.MIN_PRIORITY);
-        sLowThread.start();
+        mNormalThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
+        mNormalThread.setPriority(Thread.NORM_PRIORITY);
+        mNormalThread.start();
 
-        mMethodMap = new HashMap<String, Method>(250);
+        mLowThread = new ICQueue(new LinkedBlockingQueue<ICBlock>());
+        mLowThread.setPriority(Thread.MIN_PRIORITY);
+        mLowThread.start();
+
+        mMethodMap = new HashMap<String, Method>(mMaxMethodsHashed);
+
+        isInitialized = true;
+    }
+
+    public int getMaxMessagesOnUILoop() {
+        return mMaxMessagesOnUILoop;
+    }
+
+    public void setMaxMessagesOnUILoop(int max) {
+        checkForThreadException("setMaxMessagesOnUILoop");
+        checkForInitException("setMaxMessagesOnUILoop");
+        mMaxMessagesOnUILoop = max;
+    }
+
+    public int getMaxMethodsHashed() {
+        return mMaxMethodsHashed;
+    }
+
+    public void setMaxMethodsHashed(int max) throws RuntimeException {
+        checkForThreadException("setMaxMethodsHashed");
+        checkForInitException("setMaxMethodsHashed");
+        mMaxMethodsHashed = max;
+    }
+
+    public int getMaxThreadsInConcurrent() {
+        return mMaxThreadsInConcurrent;
+    }
+
+    public void setMaxThreadsInConcurrent(int max) {
+        checkForThreadException("setMaxThreadsInConcurrent");
+        checkForInitException("setMaxThreadsInConcurrent");
+        mMaxThreadsInConcurrent = max;
+    }
+
+    private void checkForInitException(String method) throws RuntimeException {
+        if (isInitialized) {
+            throw new RuntimeException("Method " + method + " called after initialisation");
+        }
+    }
+    private void checkForThreadException(String method){
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            throw new RuntimeException("Method setMaxMethodsHashed not called from UI thread.");
+        }
     }
 
     /**
@@ -103,19 +166,19 @@ public class ICDispatch {
     public boolean executeOn(int queue, final ICBlock block) {
         switch (queue) {
         case HIGH:
-            sHighThread.putBlock(block);
+            mHighThread.putBlock(block);
             break;
         case NORMAL:
-            sNormalThread.putBlock(block);
+            mNormalThread.putBlock(block);
             break;
         case LOW:
-            sLowThread.putBlock(block);
+            mLowThread.putBlock(block);
             break;
         case MAIN:
-            sMainQueue.putBlock(block);
+            mMainQueue.putBlock(block);
             break;
         case CONCURRENT:
-            sConcurrentThread.putBlock(block);
+            mConcurrentThread.putBlock(block);
             break;
         default:
             throw new RuntimeException("Invalid thread ID, " + queue +
@@ -127,26 +190,19 @@ public class ICDispatch {
     public void executeAllOn(int queue, Collection<ICBlock> blocks) {
         switch (queue) {
         case HIGH:
-            sHighThread.putAll(blocks);
+            mHighThread.putAll(blocks);
             break;
         case NORMAL:
-            sNormalThread.putAll(blocks);
+            mNormalThread.putAll(blocks);
             break;
         case LOW:
-            sLowThread.putAll(blocks);
+            mLowThread.putAll(blocks);
             break;
         case MAIN:
-            for (final ICBlock block : blocks) {
-                sMainHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        block.run();
-                    }
-                });
-            }
+            mMainQueue.putAll(blocks);
             break;
         case CONCURRENT:
-            sConcurrentThread.putAll(blocks);
+            mConcurrentThread.putAll(blocks);
             break;
         default:
             throw new RuntimeException("Invalid thread ID, " + queue +
