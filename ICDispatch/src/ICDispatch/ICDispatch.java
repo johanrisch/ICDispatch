@@ -114,8 +114,13 @@ public class ICDispatch {
     public int getMaxMessagesOnUILoop() {
         return mMaxMessagesOnUILoop;
     }
-
-    public void setMaxMessagesOnUILoop(int max) {
+    /**
+     * Sets the maximum number of messages per UI run loop. If more than max {@link ICBlock} is 
+     * dispatched to the main thread in one run loop the blocks will wait on a separate thread until next run loop. 
+     * @param max the maximum number of {@link ICBlock} in queue on the main thread. Default = 10
+     * @throws RuntimeException if this method is called from the main thread OR before ICDispatch.initICDispatch has been called.
+     */
+    public void setMaxMessagesOnUILoop(int max) throws RuntimeException{
         checkForThreadException("setMaxMessagesOnUILoop");
         checkForInitException("setMaxMessagesOnUILoop");
         mMaxMessagesOnUILoop = max;
@@ -124,7 +129,11 @@ public class ICDispatch {
     public int getMaxMethodsHashed() {
         return mMaxMethodsHashed;
     }
-
+    /**
+     * Sets the maximum number of hashed methods.
+     * @param max number of hashed methods. default = 250
+     * @throws RuntimeException if this method is called from the main thread OR before ICDispatch.initICDispatch has been called.
+     */
     public void setMaxMethodsHashed(int max) throws RuntimeException {
         checkForThreadException("setMaxMethodsHashed");
         checkForInitException("setMaxMethodsHashed");
@@ -134,8 +143,12 @@ public class ICDispatch {
     public int getMaxThreadsInConcurrent() {
         return mMaxThreadsInConcurrent;
     }
-
-    public void setMaxThreadsInConcurrent(int max) {
+    /**
+     * Sets the maximum number of threads in the concurrent queue.
+     * @param max number of threads in the concurrent queue. Default is the number of cores on the current device.
+     * @throws RuntimeException if this method is called from the main thread OR before ICDispatch.initICDispatch has been called.
+     */
+    public void setMaxThreadsInConcurrent(int max) throws RuntimeException{
         checkForThreadException("setMaxThreadsInConcurrent");
         checkForInitException("setMaxThreadsInConcurrent");
         mMaxThreadsInConcurrent = max;
