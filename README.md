@@ -1,5 +1,5 @@
 #ICDispatch
-ICDispatch is a framework designed to let android developers use similar syntax for executing tasks on background threads.
+ICDispatch stands for InnocreateDispatch and is a framework designed to let android developers use similar syntax for executing tasks on background threads as Grand Central Dispatch (GCD) uses on iOS.
 
 In order to use ICDispatch you must declare an application class that extends ICDispatchApplication. ICDispatch will then set itself up with default settings. 
 App.java
