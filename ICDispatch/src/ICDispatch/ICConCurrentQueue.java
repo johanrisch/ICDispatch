@@ -37,7 +37,7 @@ public class ICConCurrentQueue extends ICQueue {
         if (cores == 0) {
             Runtime.getRuntime().availableProcessors();
         }
-        this.mExecutor = Executors.newFixedThreadPool(cores);
+        this.mExecutor = Executors.newFixedThreadPool(4);
     }
 
     @Override
